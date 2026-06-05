@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, PenTool, Save, BookHeart } from 'lucide-react';
+import { X, PenTool, Save, BookHeart, Share2, Check } from 'lucide-react';
 import { triggerBurstConfetti } from '../lib/confetti';
 
 export function LoveLetterModal() {
@@ -8,28 +8,80 @@ export function LoveLetterModal() {
   const [letterContent, setLetterContent] = useState("");
   const [isEditing, setIsEditing] = useState(true);
   const [isSaved, setIsSaved] = useState(false);
+  const [isCopied, setIsCopied] = useState(false);
 
-  // Sync state with localStorage whenever the modal is opened
+  // Check for shared URL on mount
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const sharedMode = params.get('share');
+    if (sharedMode) {
+      try {
+        const decodedText = decodeURIComponent(atob(sharedMode));
+        setLetterContent(decodedText);
+        setIsEditing(false);
+        setIsOpen(true);
+        window.history.replaceState({}, document.title, window.location.pathname);
+      } catch (e) {
+        console.error("Failed to parse shared letter", e);
+      }
+    }
+  }, []);
+
+  // Fetch saved letter from server when modal opened
   useEffect(() => {
     if (isOpen) {
-      const saved = localStorage.getItem('love_letter');
-      if (saved) {
-        setLetterContent(saved);
-        setIsEditing(false); // Default to review/read mode if a letter is already saved
-      } else {
-        setLetterContent("");
-        setIsEditing(true); // Default to editing mode if it's a blank canvas
+      if (!letterContent) {
+        // Fetch from API instead of localStorage
+        fetch('/api/letter')
+          .then(res => res.json())
+          .then(data => {
+            if (data.content) {
+              setLetterContent(data.content);
+              setIsEditing(false); // Default to read mode if stored on server
+            } else {
+              setLetterContent("");
+              setIsEditing(true);
+            }
+          })
+          .catch(err => {
+            console.error("Failed to load letter from server", err);
+            setIsEditing(true);
+          });
       }
       triggerBurstConfetti();
     }
-  }, [isOpen]);
+  }, [isOpen, letterContent]);
 
-  const handleSave = () => {
-    localStorage.setItem('love_letter', letterContent);
-    setIsEditing(false);
-    setIsSaved(true);
-    triggerBurstConfetti(); // Reward them with a burst of sweet confetti upon saving!
-    setTimeout(() => setIsSaved(false), 2000);
+  const handleSave = async () => {
+    try {
+      await fetch('/api/letter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: letterContent })
+      });
+      // Also save to localStorage as a backup
+      localStorage.setItem('love_letter', letterContent);
+      setIsEditing(false);
+      setIsSaved(true);
+      triggerBurstConfetti();
+      setTimeout(() => setIsSaved(false), 2000);
+    } catch (e) {
+      console.error("Failed to save letter", e);
+    }
+  };
+  
+  const handleShare = () => {
+    if (!letterContent.trim()) return;
+    try {
+      const encoded = btoa(encodeURIComponent(letterContent));
+      const url = `${window.location.origin}${window.location.pathname}?share=${encoded}`;
+      navigator.clipboard.writeText(url).then(() => {
+        setIsCopied(true);
+        setTimeout(() => setIsCopied(false), 2000);
+      });
+    } catch (e) {
+      console.error("Failed to generate share link", e);
+    }
   };
 
   return (
@@ -69,12 +121,21 @@ export function LoveLetterModal() {
                 <h3 className="font-serif italic text-2xl text-[#8b5a2b]">My Heart's Words</h3>
                 <div className="flex gap-4 items-center">
                   {!isEditing && (
-                    <button 
-                      onClick={() => setIsEditing(true)}
-                      className="text-[#8b5a2b] hover:text-rose-600 transition-colors"
-                    >
-                      <PenTool size={20} />
-                    </button>
+                    <>
+                      <button 
+                        onClick={handleShare}
+                        className="text-[#8b5a2b] hover:text-rose-600 transition-colors flex items-center gap-1 text-sm font-sans mr-2"
+                        title="Copy shareable link"
+                      >
+                        {isCopied ? <Check size={20} className="text-emerald-600" /> : <Share2 size={20} />}
+                      </button>
+                      <button 
+                        onClick={() => setIsEditing(true)}
+                        className="text-[#8b5a2b] hover:text-rose-600 transition-colors"
+                      >
+                        <PenTool size={20} />
+                      </button>
+                    </>
                   )}
                   {isEditing && (
                     <button 
@@ -86,9 +147,18 @@ export function LoveLetterModal() {
                     </button>
                   )}
                   <button 
-                    onClick={() => {
+                    onClick={async () => {
                       if (isEditing) {
-                        localStorage.setItem('love_letter', letterContent);
+                        try {
+                          await fetch('/api/letter', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ content: letterContent })
+                          });
+                          localStorage.setItem('love_letter', letterContent);
+                        } catch(e) {
+                          console.error(e);
+                        }
                       }
                       setIsOpen(false);
                     }}
