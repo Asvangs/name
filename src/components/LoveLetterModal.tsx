@@ -88,9 +88,10 @@ export function LoveLetterModal() {
     <>
       <button 
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 w-14 h-14 bg-rose-500 text-white rounded-full flex items-center justify-center shadow-[0_8px_30px_rgb(244,63,94,0.4)] z-40 hover:bg-rose-600 transition-colors active:scale-95"
+        className="fixed bottom-6 right-6 px-6 h-14 bg-rose-500 text-white rounded-full flex items-center justify-center gap-2 shadow-[0_8px_30px_rgb(244,63,94,0.4)] z-40 hover:bg-rose-600 transition-colors active:scale-95 font-medium tracking-wide"
       >
         <BookHeart size={24} />
+        <span>Read My Letter</span>
       </button>
 
       <AnimatePresence>
