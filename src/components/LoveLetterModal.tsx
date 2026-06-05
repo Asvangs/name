@@ -9,16 +9,17 @@ export function LoveLetterModal() {
   const [isEditing, setIsEditing] = useState(true);
   const [isSaved, setIsSaved] = useState(false);
 
-  useEffect(() => {
-    const saved = localStorage.getItem('love_letter');
-    if (saved) {
-      setLetterContent(saved);
-      setIsEditing(false); // Default to viewing if saved
-    }
-  }, []);
-
+  // Sync state with localStorage whenever the modal is opened
   useEffect(() => {
     if (isOpen) {
+      const saved = localStorage.getItem('love_letter');
+      if (saved) {
+        setLetterContent(saved);
+        setIsEditing(false); // Default to review/read mode if a letter is already saved
+      } else {
+        setLetterContent("");
+        setIsEditing(true); // Default to editing mode if it's a blank canvas
+      }
       triggerBurstConfetti();
     }
   }, [isOpen]);
@@ -27,6 +28,7 @@ export function LoveLetterModal() {
     localStorage.setItem('love_letter', letterContent);
     setIsEditing(false);
     setIsSaved(true);
+    triggerBurstConfetti(); // Reward them with a burst of sweet confetti upon saving!
     setTimeout(() => setIsSaved(false), 2000);
   };
 
@@ -104,7 +106,6 @@ export function LoveLetterModal() {
                     value={letterContent}
                     onChange={(e) => {
                       setLetterContent(e.target.value);
-                      localStorage.setItem('love_letter', e.target.value);
                     }}
                     placeholder="Write your deepest feelings here..."
                     className="w-full h-full bg-transparent resize-none outline-none text-2xl leading-relaxed text-[#5c3a21] placeholder-[#af8b68]"
