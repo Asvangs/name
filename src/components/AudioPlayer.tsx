@@ -5,23 +5,71 @@ import { motion } from 'motion/react';
 export function AudioPlayer() {
   const [isPlaying, setIsPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const playAttempted = useRef(false);
 
   useEffect(() => {
     if (audioRef.current) {
       audioRef.current.volume = 0.3; // Set low volume for background music
+      
+      // Attempt to play immediately on mount
+      const playPromise = audioRef.current.play();
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            setIsPlaying(true);
+            playAttempted.current = true;
+          })
+          .catch((error) => {
+            console.log("Autoplay prevented by browser, waiting for user interaction.", error);
+            setIsPlaying(false);
+          });
+      }
     }
+
+    // Setup a one-time global interaction listener to play audio if autoplay was blocked
+    const handleFirstInteraction = () => {
+      if (!playAttempted.current && audioRef.current && !isPlaying) {
+        const playPromise = audioRef.current.play();
+        if (playPromise !== undefined) {
+          playPromise
+            .then(() => {
+              setIsPlaying(true);
+              playAttempted.current = true;
+              document.removeEventListener('click', handleFirstInteraction);
+              document.removeEventListener('touchstart', handleFirstInteraction);
+              document.removeEventListener('keydown', handleFirstInteraction);
+            })
+            .catch(() => {
+              // Silently ignore browser autoplay policies on interaction
+            });
+        }
+      }
+    };
+
+    document.addEventListener('click', handleFirstInteraction);
+    document.addEventListener('touchstart', handleFirstInteraction);
+    document.addEventListener('keydown', handleFirstInteraction);
+
+    return () => {
+      document.removeEventListener('click', handleFirstInteraction);
+      document.removeEventListener('touchstart', handleFirstInteraction);
+      document.removeEventListener('keydown', handleFirstInteraction);
+    };
   }, []);
 
-  const togglePlay = () => {
+  const togglePlay = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation(); // Prevent global listener from overriding this
+    
     if (audioRef.current) {
       if (isPlaying) {
         audioRef.current.pause();
         setIsPlaying(false);
+        playAttempted.current = true; // User manually paused, respect it
       } else {
         audioRef.current.play().then(() => {
           setIsPlaying(true);
-        }).catch((e) => {
-          console.error("Audio playback failed", e);
+          playAttempted.current = true;
+        }).catch(() => {
           setIsPlaying(false);
         });
       }
@@ -33,8 +81,9 @@ export function AudioPlayer() {
       <audio 
         ref={audioRef} 
         loop
-        // Reliable romantic placeholder audio
-        src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" 
+        autoPlay
+        // Raabta song
+        src="https://archive.org/download/RaabtaKehteHainKhudaNebestwap.in/Raabta_%28Kehte_Hain_Khuda_Ne%29_%28bestwap.in%29.mp3" 
       />
       
       <motion.button
