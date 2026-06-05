@@ -4,13 +4,20 @@ import { X, PenTool, Save, BookHeart, Share2, Check } from 'lucide-react';
 import { triggerBurstConfetti } from '../lib/confetti';
 
 export function LoveLetterModal() {
+  const DEFAULT_LETTER = `Oi my wife 😘 
+I really love you 💞 and miss u more than u think 🥺.
+Hey remember one that I will never betray u I promise you that will never happen.
+Ya we know that we can't be together forever but I will definitely take care of u and give everything u want until that day 😘...I know that I'm a naughty boy and have a dirty brain but i will never act badly towards you and never look at any other woman. I only urs and never see any one else.. just send me pics 😝 
+Jk 😂.. i only need ur love 💕 
+Love you darling 😘`;
+
   const [isOpen, setIsOpen] = useState(false);
-  const [letterContent, setLetterContent] = useState("");
-  const [isEditing, setIsEditing] = useState(true);
+  const [letterContent, setLetterContent] = useState(DEFAULT_LETTER);
+  const [isEditing, setIsEditing] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
 
-  // Check for shared URL on mount
+  // Check for shared URL on mount or local storage
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const sharedMode = params.get('share');
@@ -24,42 +31,23 @@ export function LoveLetterModal() {
       } catch (e) {
         console.error("Failed to parse shared letter", e);
       }
+    } else {
+      const saved = localStorage.getItem('love_letter');
+      if (saved) {
+        setLetterContent(saved);
+      }
     }
   }, []);
 
-  // Fetch saved letter from server when modal opened
+  // Open letter actions
   useEffect(() => {
     if (isOpen) {
-      if (!letterContent) {
-        // Fetch from API instead of localStorage
-        fetch('/api/letter')
-          .then(res => res.json())
-          .then(data => {
-            if (data.content) {
-              setLetterContent(data.content);
-              setIsEditing(false); // Default to read mode if stored on server
-            } else {
-              setLetterContent("");
-              setIsEditing(true);
-            }
-          })
-          .catch(err => {
-            console.error("Failed to load letter from server", err);
-            setIsEditing(true);
-          });
-      }
       triggerBurstConfetti();
     }
-  }, [isOpen, letterContent]);
+  }, [isOpen]);
 
-  const handleSave = async () => {
+  const handleSave = () => {
     try {
-      await fetch('/api/letter', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: letterContent })
-      });
-      // Also save to localStorage as a backup
       localStorage.setItem('love_letter', letterContent);
       setIsEditing(false);
       setIsSaved(true);
@@ -148,14 +136,9 @@ export function LoveLetterModal() {
                     </button>
                   )}
                   <button 
-                    onClick={async () => {
+                    onClick={() => {
                       if (isEditing) {
                         try {
-                          await fetch('/api/letter', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ content: letterContent })
-                          });
                           localStorage.setItem('love_letter', letterContent);
                         } catch(e) {
                           console.error(e);
